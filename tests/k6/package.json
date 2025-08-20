@@ -14,5 +14,9 @@
     "test:quick": "k6 run --duration=2m --vus=10 scenarios/upload/ramp-load.js"
   },
   "author": "PDF Handler Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "k6-html-reporter": "^1.0.5",
+    "k6-to-junit": "^1.0.3"
+  }
 }
