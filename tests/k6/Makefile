@@ -1,66 +1,127 @@
-# tests/k6/Makefile
-.PHONY: install test clean help
+.PHONY: k6-setup k6-clean k6-split k6-merge k6-protect k6-watermark k6-all
 
+# Variables
 BASE_URL ?= http://localhost:8000
-RESULTS_DIR = results
-DURATION ?= 5m
-VUS ?= 50
+K6_IMAGE = grafana/k6:latest
+K6_SCRIPT_DIR := /home/jairo/Escritorio/pruebas-k6/tests/k6
+K6_RESULTS_DIR := $(K6_SCRIPT_DIR)/results
 
-help: ## Show this help message
-	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+# Setup
+k6-setup:
+	@mkdir -p $(K6_RESULTS_DIR)
+	@echo "✅ K6 setup complete"
 
-install: ## Install k6 (Linux)
-	sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-	echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-	sudo apt-get update
-	sudo apt-get install k6
+k6-clean:
+	@rm -rf $(K6_RESULTS_DIR)/*
+	@echo "🧹 Results cleaned"
 
-setup: ## Create results directory
-	mkdir -p $(RESULTS_DIR)
+# --- Split PDF tests ---
+k6-split-ramp: k6-setup
+	@echo "📈 Running Split PDF Ramp Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/split/ramp.js
 
-test-upload-ramp: setup ## Run upload ramp load test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/upload-ramp.json scenarios/upload/ramp-load.js
+k6-split-spike: k6-setup
+	@echo "⚡ Running Split PDF Spike Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/split/spike.js
 
-test-upload-spike: setup ## Run upload spike test  
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/upload-spike.json scenarios/upload/spike.js
+k6-split-soak: k6-setup
+	@echo "🔄 Running Split PDF Soak Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/split/soak.js
 
-test-upload-soak: setup ## Run upload soak test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/upload-soak.json scenarios/upload/soak.js
+# --- Merge PDF tests ---
+k6-merge-ramp: k6-setup
+	@echo "📈 Running Merge PDF Ramp Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/merge/ramp.js
 
-test-split-ramp: setup ## Run split ramp load test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/split-ramp.json scenarios/split/ramp-load.js
+k6-merge-spike: k6-setup
+	@echo "⚡ Running Merge PDF Spike Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/merge/spike.js
 
-test-merge-ramp: setup ## Run merge ramp load test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/merge-ramp.json scenarios/merge/ramp-load.js
+k6-merge-soak: k6-setup
+	@echo "🔄 Running Merge PDF Soak Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/merge/soak.js
 
-test-watermark-soak: setup ## Run watermark soak test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/watermark-soak.json scenarios/watermark/soak.js
+# --- Protect PDF tests ---
+k6-protect-ramp: k6-setup
+	@echo "📈 Running Protect PDF Ramp Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/protect/ramp.js
 
-test-protect-spike: setup ## Run protection spike test
-	BASE_URL=$(BASE_URL) k6 run --out json=$(RESULTS_DIR)/protect-spike.json scenarios/protect/spike.js
+# --- Watermark PDF tests ---
+k6-watermark-ramp: k6-setup
+	@echo "📈 Running Watermark PDF Ramp Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/watermark/ramp.js
 
-test-all: setup ## Run all performance tests
-	$(MAKE) test-upload-ramp
-	$(MAKE) test-split-ramp  
-	$(MAKE) test-merge-ramp
-	$(MAKE) test-protect-spike
+# --- Upload PDF tests ---
+k6-upload-ramp: k6-setup
+	@echo "📈 Running Upload PDF Ramp Test..."
+	@docker run --rm \
+		-v "$(K6_SCRIPT_DIR):/scripts" \
+		-v "$(K6_RESULTS_DIR):/results" \
+		-e BASE_URL=$(BASE_URL) \
+		--network host \
+		$(K6_IMAGE) run \
+		/scripts/scenarios/upload/ramp-load.js
 
-test-quick: setup ## Run quick performance test
-	BASE_URL=$(BASE_URL) k6 run --duration=$(DURATION) --vus=$(VUS) --out json=$(RESULTS_DIR)/quick-test.json scenarios/upload/ramp-load.js
+# --- Run all ramp tests ---
+k6-ramp-all: k6-split-ramp k6-merge-ramp k6-protect-ramp k6-watermark-ramp k6-upload-ramp
+	@echo "🎉 All ramp tests completed"
 
-generate-report: ## Generate HTML report from results
-	k6 run --out html=$(RESULTS_DIR)/report.html run-all-tests.js
+# --- Run all spike tests ---
+k6-spike-all: k6-split-spike k6-merge-spike
+	@echo "🎉 All spike tests completed"
 
-clean: ## Clean up results directory
-	rm -rf $(RESULTS_DIR)/*
+# --- Run all soak tests ---
+k6-soak-all: k6-split-soak k6-merge-soak
+	@echo "🎉 All soak tests completed"
 
-docker-up: ## Start k6 with monitoring stack
-	docker-compose up -d
-
-docker-down: ## Stop monitoring stack
-	docker-compose down
-
-docker-test: ## Run tests in docker
-	docker-compose run k6 run /scripts/scenarios/upload/ramp-load.js
-
+# --- Run all tests ---
+k6-all: k6-ramp-all k6-spike-all k6-soak-all
+	@echo "🎉 All performance tests completed"

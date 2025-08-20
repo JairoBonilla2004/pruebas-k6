@@ -1,4 +1,4 @@
-// tests/k6/scenarios/upload/ramp.js
+// tests/k6/scenarios/merge/ramp.js
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
@@ -23,17 +23,21 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  fd.append('pdf', createTestPDF(`upload-test-${__VU}-${__ITER}.pdf`));
+  fd.append('pdf', createTestPDF('merge1.pdf'));
+  fd.append('pdf', createTestPDF('merge2.pdf'));
+  fd.append('output', 'merged-result.pdf');
 
-  const response = http.post(`${BASE_URL}/api/pdf-handler/upload/`, fd.body(), {
+  const response = http.post(`${BASE_URL}/api/pdf-handler/merge/`, fd.body(), {
     headers: { 'Content-Type': 'multipart/form-data; boundary=' + fd.boundary },
     timeout: '30s',
   });
 
   check(response, {
-    'upload: status is 201': (r) => r.status === 201,
-    'upload: response time < 1s': (r) => r.timings.duration < 1000,
-    'upload: has success message': (r) => r.body && r.body.includes('File Upload'),
+    'merge: status is 200': (r) => r.status === 200,
+    'merge: response time < 2s': (r) => r.timings.duration < 2000,
+    'merge: has response body': (r) => r.body.length > 0,
+    'merge: content-disposition header': (r) => 
+      r.headers['Content-Disposition'] && r.headers['Content-Disposition'].includes('attachment'),
   });
 
   sleep(1);
