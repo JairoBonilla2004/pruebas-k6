@@ -1,0 +1,18 @@
+{
+  "name": "pdf-handler-performance-tests",
+  "version": "1.0.0",
+  "description": "K6 Performance Tests for PDF Handler API",
+  "scripts": {
+    "test:upload:ramp": "k6 run scenarios/upload/ramp-load.js",
+    "test:upload:spike": "k6 run scenarios/upload/spike.js",
+    "test:upload:soak": "k6 run scenarios/upload/soak.js",
+    "test:split:ramp": "k6 run scenarios/split/ramp-load.js",
+    "test:merge:ramp": "k6 run scenarios/merge/ramp-load.js",
+    "test:watermark:soak": "k6 run scenarios/watermark/soak.js",
+    "test:protect:spike": "k6 run scenarios/protect/spike.js",
+    "test:all": "npm run test:upload:ramp && npm run test:split:ramp && npm run test:merge:ramp",
+    "test:quick": "k6 run --duration=2m --vus=10 scenarios/upload/ramp-load.js"
+  },
+  "author": "PDF Handler Team",
+  "license": "MIT"
+}
