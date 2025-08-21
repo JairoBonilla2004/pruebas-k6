@@ -24,8 +24,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install django djangorestframework
+          # Install Django and common dependencies
+          pip install django djangorestframework django-cors-headers
+          pip install pillow python-decouple psycopg2-binary
+          # Install K6 report dependencies
           pip install jinja2 matplotlib seaborn pandas numpy
+          # Install from requirements.txt if it exists
+          if [ -f tests/backend/requirements.txt ]; then
+            pip install -r tests/backend/requirements.txt
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
 
       - name: Setup Docker for K6
         run: docker pull grafana/k6:latest
@@ -33,17 +42,32 @@ jobs:
       - name: Start Django server
         run: |
           cd tests/backend
-          echo "Creating minimal settings for CI..."
-          export DJANGO_SETTINGS_MODULE=backend.settings
-          export DEBUG=True
+          echo "Setting up Django environment..."
+          # Create a simple .env file for CI if needed
+          echo "DEBUG=True" > .env || true
+          echo "SECRET_KEY=ci-test-key-not-for-production" >> .env || true
+          
+          echo "Running migrations..."
           python manage.py migrate --noinput || echo "Migration failed, continuing..."
+          
           echo "Starting Django server..."
           python manage.py runserver 8000 --noreload &
           DJANGO_PID=$!
           echo "Django PID: $DJANGO_PID"
-          sleep 10
-          echo "Checking if server is running..."
-          curl -f http://localhost:8000/ || echo "Server check failed, but continuing..."
+          
+          echo "Waiting for server to start..."
+          sleep 15
+          
+          echo "Testing server connection..."
+          for i in {1..5}; do
+            if curl -f http://localhost:8000/ 2>/dev/null; then
+              echo "✅ Django server is running!"
+              break
+            else
+              echo "⏳ Attempt $i: Server not ready, waiting..."
+              sleep 3
+            fi
+          done
 
       - name: Run K6 ramp tests
         timeout-minutes: 10
