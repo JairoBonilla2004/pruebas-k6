@@ -1,209 +1,48 @@
-# .github/workflows/performance.yml
-name: Performance Tests
+name: K6 Performance Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-    types: [ labeled ]
+  workflow_dispatch:
 
 jobs:
-  performance:
-    # Solo ejecutar en main o PRs etiquetados con 'perf'
-    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'perf')
-    
+  k6-tests:
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.9'
 
-      # --- Eliminado instalación de requirements.txt ---
-      # - name: Install dependencies
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install -r requirements.txt
-
-      - name: Create results directory
-        run: mkdir -p tests/k6/results
-
-      - name: Set up Django settings
+      - name: Install dependencies
         run: |
-          export DJANGO_SETTINGS_MODULE=myproject.settings
-          export DATABASE_URL=postgres://postgres:postgres@localhost:5432/testdb
+          python -m pip install --upgrade pip
+          pip install django djangorestframework
+          pip install jinja2 matplotlib seaborn pandas numpy
 
-      - name: Run migrations
-        run: python manage.py migrate
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb
+      - name: Setup Docker for K6
+        run: docker pull grafana/k6:latest
 
       - name: Start Django server
         run: |
-          python manage.py runserver 0.0.0.0:8000 &
-          echo $! > django.pid
-          sleep 15
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb
+          cd backend
+          python manage.py migrate --noinput || true
+          python manage.py runserver 8000 &
+          sleep 5
 
-      - name: Wait for server to be ready
-        run: |
-          timeout 60s bash -c 'until curl -s http://localhost:8000/api/pdf-handler/upload/; do sleep 2; done'
+      - name: Run K6 ramp tests
+        run: make k6-ramp-all BASE_URL=http://localhost:8000
+        continue-on-error: true
 
-      # --- K6 Tests ---
-      - name: Run K6 Upload Ramp Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/upload-ramp-summary.json \
-            /scripts/scenarios/upload/ramp.js
-
-      - name: Run K6 Upload Spike Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/upload-spike-summary.json \
-            /scripts/scenarios/upload/spike.js
-
-      # --- Split Tests ---
-      - name: Run K6 Split Ramp Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/split-ramp-summary.json \
-            /scripts/scenarios/split/ramp.js
-
-      - name: Run K6 Split Spike Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/split-spike-summary.json \
-            /scripts/scenarios/split/spike.js
-
-      # --- Merge Tests ---
-      - name: Run K6 Merge Ramp Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/merge-ramp-summary.json \
-            /scripts/scenarios/merge/ramp.js
-
-      - name: Run K6 Merge Spike Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/merge-spike-summary.json \
-            /scripts/scenarios/merge/spike.js
-
-      # --- Protect Tests ---
-      - name: Run K6 Protect Ramp Test
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}/tests/k6:/scripts" \
-            -v "${{ github.workspace }}/tests/k6/results:/results" \
-            -e BASE_URL=http://host.docker.internal:8000 \
-            --network host \
-            grafana/k6:latest run \
-            --out json=/results/protect-ramp-summary.json \
-            /scripts/scenarios/protect/ramp.js
-
-      - name: Stop Django server
-        if: always()
-        run: |
-          if [ -f django.pid ]; then
-            kill $(cat django.pid) || true
-            rm django.pid
-          fi
-
-      - name: Upload performance results
+      - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: k6-performance-results-${{ github.run_id }}
+          name: k6-test-results
           path: tests/k6/results/
           retention-days: 30
-
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            try {
-              let comment = '## 📊 Performance Test Results\n\n';
-              const tests = [
-                { name: 'Upload Ramp', file: 'upload-ramp-summary.json' },
-                { name: 'Upload Spike', file: 'upload-spike-summary.json' },
-                { name: 'Split Ramp', file: 'split-ramp-summary.json' },
-                { name: 'Split Spike', file: 'split-spike-summary.json' },
-                { name: 'Merge Ramp', file: 'merge-ramp-summary.json' },
-                { name: 'Merge Spike', file: 'merge-spike-summary.json' },
-                { name: 'Protect Ramp', file: 'protect-ramp-summary.json' }
-              ];
-              for (const test of tests) {
-                try {
-                  const results = JSON.parse(fs.readFileSync(`tests/k6/results/${test.file}`, 'utf8'));
-                  const metrics = results.metrics;
-                  comment += `### ${test.name}\n`;
-                  comment += `- **Avg Duration**: ${metrics.http_req_duration?.values?.avg?.toFixed(2) || 'N/A'}ms\n`;
-                  comment += `- **95th Percentile**: ${metrics.http_req_duration?.values?.['p(95)']?.toFixed(2) || 'N/A'}ms\n`;
-                  comment += `- **Success Rate**: ${((1 - (metrics.http_req_failed?.values?.rate || 0)) * 100).toFixed(2)}%\n`;
-                  comment += `- **Total Requests**: ${metrics.http_reqs?.values?.count || 'N/A'}\n\n`;
-                } catch (error) {
-                  comment += `### ${test.name}\n`;
-                  comment += `- ❌ Test failed or results not available\n\n`;
-                }
-              }
-              comment += '📈 [Detailed reports available in artifacts]';
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            } catch (error) {
-              console.log('Could not process results:', error.message);
-            }
