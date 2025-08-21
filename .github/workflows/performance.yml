@@ -31,7 +31,7 @@ jobs:
 
       - name: Start Django server
         run: |
-          cd backend
+          cd tests/backend
           python manage.py migrate --noinput || true
           python manage.py runserver 8000 &
           sleep 5
