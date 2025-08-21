@@ -26,7 +26,7 @@ on:
         default: 'http://localhost:8000'
 
 env:
-  BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:8000' }}
+  BASE_URL: http://localhost:8000
 
 jobs:
   setup:
@@ -52,6 +52,19 @@ jobs:
     strategy:
       matrix:
         test: [split, merge, protect, watermark, upload]
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,10 +74,26 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install jinja2 matplotlib seaborn pandas numpy
+          # Install Django backend dependencies
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install django djangorestframework python-decouple psycopg2-binary pillow
+          fi
 
       - name: Setup Docker
         run: docker pull grafana/k6:latest
@@ -72,8 +101,31 @@ jobs:
       - name: Create results directory
         run: mkdir -p tests/k6/results
 
+      - name: Setup Django environment
+        run: |
+          cd backend
+          # Create .env file if it doesn't exist
+          if [ ! -f .env ]; then
+            echo "DEBUG=True" > .env
+            echo "SECRET_KEY=test-secret-key-for-ci" >> .env
+            echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/testdb" >> .env
+          fi
+
+      - name: Run Django migrations
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+
+      - name: Start Django server
+        run: |
+          cd backend
+          python manage.py runserver 8000 &
+          sleep 10
+          # Verificar que el servidor esté corriendo
+          curl -f http://localhost:8000/ || (echo "Django server failed to start" && exit 1)
+
       - name: Run K6 ${{ matrix.test }} ramp test
-        run: make k6-${{ matrix.test }}-ramp BASE_URL=${{ env.BASE_URL }}
+        run: make k6-${{ matrix.test }}-ramp BASE_URL=http://localhost:8000
         continue-on-error: true
 
       - name: Upload ${{ matrix.test }} ramp results
@@ -92,6 +144,19 @@ jobs:
     strategy:
       matrix:
         test: [split, merge, protect, watermark, upload]
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -101,10 +166,26 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install jinja2 matplotlib seaborn pandas numpy
+          # Install Django backend dependencies
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install django djangorestframework python-decouple psycopg2-binary pillow
+          fi
 
       - name: Setup Docker
         run: docker pull grafana/k6:latest
@@ -112,8 +193,31 @@ jobs:
       - name: Create results directory
         run: mkdir -p tests/k6/results
 
+      - name: Setup Django environment
+        run: |
+          cd backend
+          # Create .env file if it doesn't exist
+          if [ ! -f .env ]; then
+            echo "DEBUG=True" > .env
+            echo "SECRET_KEY=test-secret-key-for-ci" >> .env
+            echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/testdb" >> .env
+          fi
+
+      - name: Run Django migrations
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+
+      - name: Start Django server
+        run: |
+          cd backend
+          python manage.py runserver 8000 &
+          sleep 10
+          # Verificar que el servidor esté corriendo
+          curl -f http://localhost:8000/ || (echo "Django server failed to start" && exit 1)
+
       - name: Run K6 ${{ matrix.test }} spike test
-        run: make k6-${{ matrix.test }}-spike BASE_URL=${{ env.BASE_URL }}
+        run: make k6-${{ matrix.test }}-spike BASE_URL=http://localhost:8000
         continue-on-error: true
 
       - name: Upload ${{ matrix.test }} spike results
@@ -132,6 +236,19 @@ jobs:
     strategy:
       matrix:
         test: [split, merge, protect, watermark, upload]
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -141,10 +258,26 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install jinja2 matplotlib seaborn pandas numpy
+          # Install Django backend dependencies
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install django djangorestframework python-decouple psycopg2-binary pillow
+          fi
 
       - name: Setup Docker
         run: docker pull grafana/k6:latest
@@ -152,8 +285,31 @@ jobs:
       - name: Create results directory
         run: mkdir -p tests/k6/results
 
+      - name: Setup Django environment
+        run: |
+          cd backend
+          # Create .env file if it doesn't exist
+          if [ ! -f .env ]; then
+            echo "DEBUG=True" > .env
+            echo "SECRET_KEY=test-secret-key-for-ci" >> .env
+            echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/testdb" >> .env
+          fi
+
+      - name: Run Django migrations
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+
+      - name: Start Django server
+        run: |
+          cd backend
+          python manage.py runserver 8000 &
+          sleep 10
+          # Verificar que el servidor esté corriendo
+          curl -f http://localhost:8000/ || (echo "Django server failed to start" && exit 1)
+
       - name: Run K6 ${{ matrix.test }} soak test
-        run: make k6-${{ matrix.test }}-soak BASE_URL=${{ env.BASE_URL }}
+        run: make k6-${{ matrix.test }}-soak BASE_URL=http://localhost:8000
         continue-on-error: true
 
       - name: Upload ${{ matrix.test }} soak results
