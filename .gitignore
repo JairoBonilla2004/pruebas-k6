@@ -1,1 +1,2 @@
 tests/k6/results/*.json
+tests/k6/results/*.html
