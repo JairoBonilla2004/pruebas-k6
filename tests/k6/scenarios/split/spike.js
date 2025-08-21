@@ -10,8 +10,8 @@ export let options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '15s', target: 20 },
-        { duration: '2m', target: 20 },
+        { duration: '15s', target: 45 },
+        { duration: '2m', target: 45 },
         { duration: '15s', target: 0 },
       ],
     },
