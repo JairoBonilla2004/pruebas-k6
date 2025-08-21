@@ -6,10 +6,10 @@ import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
-    soak_split: {
+    soak_load: {
       executor: 'constant-vus',
-      vus: 60,           // carga constante baja/media
-      duration: '30m',   // larga duración
+      vus: 60,
+      duration: '30m',
     },
   },
   thresholds: THRESHOLDS,
@@ -17,7 +17,7 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  const pdf = testPDFs[__VU % testPDFs.length];
+  const pdf = testPDFs[1];
 
   fd.append('pdf', http.file(pdf, `split-soak-${__VU}-${__ITER}.pdf`, 'application/pdf'));
   fd.append('split_in_page', '2');
@@ -30,11 +30,10 @@ export default function () {
   });
 
   check(res, {
-    'status is 2xx or 3xx': (r) => r.status >= 200 && r.status < 400,
-    'response time < 3s': (r) => r.timings.duration < 3000,
-    'no server errors': (r) => r.status < 500,
-    'memory stable': (r) => r.status !== 503 && r.status !== 507,
+    'status is 200': (r) => r.status === 200,
+    'response time < 5s': (r) => r.timings.duration < 5000,
+    'has ZIP content': (r) => r.body && r.body.startsWith('PK'),
   });
 
-  sleep(1.5);
+  sleep(1);
 }

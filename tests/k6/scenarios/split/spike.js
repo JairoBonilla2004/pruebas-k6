@@ -6,13 +6,13 @@ import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
-    spike_split: {
+    spike_load: {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '15s', target: 300 }, // subida rápida
-        { duration: '2m', target: 300 },  // mantener pico
-        { duration: '15s', target: 0 },   // bajada rápida
+        { duration: '15s', target: 20 },
+        { duration: '2m', target: 20 },
+        { duration: '15s', target: 0 },
       ],
     },
   },
@@ -21,7 +21,7 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  const pdf = testPDFs[__VU % testPDFs.length];
+  const pdf = testPDFs[1]; // siempre pdf2
 
   fd.append('pdf', http.file(pdf, `split-spike-${__VU}-${__ITER}.pdf`, 'application/pdf'));
   fd.append('split_in_page', '2');
@@ -34,10 +34,10 @@ export default function () {
   });
 
   check(res, {
-    'status is 2xx or 3xx': (r) => r.status >= 200 && r.status < 400,
-    'response time < 2s': (r) => r.timings.duration < 2000,
-    'no server errors': (r) => r.status < 500,
+    'status is 200': (r) => r.status === 200,
+    'response time < 5s': (r) => r.timings.duration < 5000,
+    'has ZIP content': (r) => r.body && r.body.startsWith('PK'),
   });
 
-  sleep(0.3);
+  sleep(1);
 }

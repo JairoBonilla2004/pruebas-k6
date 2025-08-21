@@ -6,13 +6,13 @@ import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
-    ramp_split: {
+    ramp_load: {
       executor: 'ramping-vus',
-      startVUs: 5,
+      startVUs: 10,
       stages: [
-        { duration: '2m', target: 20 },
-        { duration: '3m', target: 50 },
-        { duration: '2m', target: 100 },
+        { duration: '2m', target: 30 },
+        { duration: '2m', target: 60 },
+        { duration: '3m', target: 100 },
         { duration: '3m', target: 100 },
         { duration: '2m', target: 0 },
       ],
@@ -23,7 +23,7 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  const pdf = testPDFs[__VU % testPDFs.length];
+  const pdf = testPDFs[1];
 
   fd.append('pdf', http.file(pdf, `split-ramp-${__VU}-${__ITER}.pdf`, 'application/pdf'));
   fd.append('split_in_page', '2');
@@ -36,9 +36,9 @@ export default function () {
   });
 
   check(res, {
-    'status is 2xx or 3xx': (r) => r.status >= 200 && r.status < 400,
+    'status is 200': (r) => r.status === 200,
     'response time < 5s': (r) => r.timings.duration < 5000,
-    'no server errors': (r) => r.status < 500,
+    'has ZIP content': (r) => r.body && r.body.startsWith('PK'),
   });
 
   sleep(1);
