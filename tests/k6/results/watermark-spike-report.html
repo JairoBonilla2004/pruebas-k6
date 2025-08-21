@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>K6 Report - watermark-spike</title>
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box}
+        body {font-family: system-ui, sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px}
+        .container {max-width: 1000px; margin: 0 auto}
+        .card {background: white; border-radius: 15px; padding: 30px; margin: 20px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1)}
+        .header {text-align: center}
+        .status {display: inline-block; padding: 8px 20px; border-radius: 20px; color: white; font-weight: bold; margin: 10px 0}
+        .passed {background: #27ae60}
+        .failed {background: #e74c3c}
+        .grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px}
+        .metric {background: linear-gradient(135deg, #74b9ff, #0984e3); color: white; padding: 20px; border-radius: 12px; text-align: center}
+        .metric-value {font-size: 1.8rem; font-weight: bold; display: block}
+        .metric-label {font-size: 0.9rem; opacity: 0.9}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card header">
+            <h1>📊 K6 Test Report</h1>
+            <p><strong>watermark-spike</strong></p>
+            <div class="status passed">✅ PASSED</div>
+            <p>2025-08-20 21:45:56</p>
+        </div>
+        <div class="card">
+            <div class="grid">
+                <div class="metric">
+                    <span class="metric-value">879</span>
+                    <span class="metric-label">Total Requests</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">28.24ms</span>
+                    <span class="metric-label">Avg Response Time</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">0.0%</span>
+                    <span class="metric-label">Failed Requests</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">10</span>
+                    <span class="metric-label">Max Virtual Users</span>
+                </div>
+            </div>
+            <div style="text-align:center;margin-top:20px;padding:20px;background:#f8f9fa;border-radius:10px">
+                <h3>📈 Summary</h3>
+                <p>Requests: <strong>879</strong> | Success Rate: <strong>100.0%</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

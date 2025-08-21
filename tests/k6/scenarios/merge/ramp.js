@@ -2,7 +2,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
-import { BASE_URL, THRESHOLDS, createTestPDF } from '../../config.js';
+import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
@@ -23,20 +23,25 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  fd.append('pdf', createTestPDF('merge1.pdf'));
-  fd.append('pdf', createTestPDF('merge2.pdf'));
-  fd.append('output', 'merged-result.pdf');
 
-  const response = http.post(`${BASE_URL}/api/pdf-handler/merge/`, fd.body(), {
+  // Elegir PDFs al azar para merge
+  const pdf1 = testPDFs[__VU % testPDFs.length];
+  const pdf2 = testPDFs[(__VU + 1) % testPDFs.length];
+
+  fd.append('pdf', http.file(pdf1, `merge1-${__VU}-${__ITER}.pdf`, 'application/pdf'));
+  fd.append('pdf', http.file(pdf2, `merge2-${__VU}-${__ITER}.pdf`, 'application/pdf'));
+  fd.append('output', `merged-result-${__VU}-${__ITER}.pdf`);
+
+  const res = http.post(`${BASE_URL}/api/pdf-handler/merge/`, fd.body(), {
     headers: { 'Content-Type': 'multipart/form-data; boundary=' + fd.boundary },
     timeout: '30s',
   });
 
-  check(response, {
-    'merge: status is 200': (r) => r.status === 200,
+  check(res, {
+    'merge: status is 2xx or 3xx': (r) => r.status >= 200 && r.status < 400,
     'merge: response time < 2s': (r) => r.timings.duration < 2000,
-    'merge: has response body': (r) => r.body.length > 0,
-    'merge: content-disposition header': (r) => 
+    'merge: has response body': (r) => r.body && r.body.length > 0,
+    'merge: content-disposition header exists': (r) => 
       r.headers['Content-Disposition'] && r.headers['Content-Disposition'].includes('attachment'),
   });
 

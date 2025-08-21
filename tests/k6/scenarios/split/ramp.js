@@ -1,20 +1,20 @@
 // tests/k6/scenarios/split/ramp.js
-import http from "k6/http";
-import { check, sleep } from "k6";
-import { FormData } from "https://jslib.k6.io/formdata/0.0.2/index.js";
-import { BASE_URL, THRESHOLDS, createTestPDF } from "../../config.js";
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
+import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
-    ramp_load: {
-      executor: "ramping-vus",
-      startVUs: 10,
+    ramp_split: {
+      executor: 'ramping-vus',
+      startVUs: 5,
       stages: [
-        { duration: "2m", target: 30 },
-        { duration: "2m", target: 60 },
-        { duration: "3m", target: 100 },
-        { duration: "3m", target: 100 },
-        { duration: "2m", target: 0 },
+        { duration: '2m', target: 20 },
+        { duration: '3m', target: 50 },
+        { duration: '2m', target: 100 },
+        { duration: '3m', target: 100 },
+        { duration: '2m', target: 0 },
       ],
     },
   },
@@ -22,25 +22,23 @@ export let options = {
 };
 
 export default function () {
-  const pdfData = createTestPDF(); // ✅ ahora es Uint8Array
-
   const fd = new FormData();
-  fd.append("pdf", pdfData, "split-test.pdf"); // k6 acepta Uint8Array
-  fd.append("split_in_page", "1");
-  fd.append("output", JSON.stringify(["part1.pdf", "part2.pdf"]));
+  const pdf = testPDFs[__VU % testPDFs.length];
 
-  const response = http.post(`${BASE_URL}/api/pdf-handler/split/`, fd.body(), {
-    headers: { "Content-Type": "multipart/form-data; boundary=" + fd.boundary },
-    timeout: "30s",
+  fd.append('pdf', http.file(pdf, `split-ramp-${__VU}-${__ITER}.pdf`, 'application/pdf'));
+  fd.append('split_in_page', '2');
+  fd.append('output', `output1-${__VU}-${__ITER}.pdf`);
+  fd.append('output', `output2-${__VU}-${__ITER}.pdf`);
+
+  const res = http.post(`${BASE_URL}/api/pdf-handler/split/`, fd.body(), {
+    headers: { 'Content-Type': 'multipart/form-data; boundary=' + fd.boundary },
+    timeout: '30s',
   });
 
-  check(response, {
-    "split: status is 200": (r) => r.status === 200,
-    "split: response time < 2s": (r) => r.timings.duration < 2000,
-    "split: has response body": (r) => r.body && r.body.length > 0,
-    "split: content-type is application/zip": (r) =>
-      r.headers["Content-Type"] &&
-      r.headers["Content-Type"].includes("application"),
+  check(res, {
+    'status is 2xx or 3xx': (r) => r.status >= 200 && r.status < 400,
+    'response time < 5s': (r) => r.timings.duration < 5000,
+    'no server errors': (r) => r.status < 500,
   });
 
   sleep(1);

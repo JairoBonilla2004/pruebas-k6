@@ -2,7 +2,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
-import { BASE_URL, THRESHOLDS, createTestPDF } from '../../config.js';
+import { BASE_URL, THRESHOLDS, testPDFs } from '../../config.js';
 
 export let options = {
   scenarios: {
@@ -23,17 +23,20 @@ export let options = {
 
 export default function () {
   const fd = new FormData();
-  fd.append('pdf', createTestPDF(`upload-test-${__VU}-${__ITER}.pdf`));
 
-  const response = http.post(`${BASE_URL}/api/pdf-handler/upload/`, fd.body(), {
+  // Elegir un PDF al azar para cada VU
+  const pdf = testPDFs[__VU % testPDFs.length];
+  fd.append('pdf', http.file(pdf, `upload-test-${__VU}-${__ITER}.pdf`, 'application/pdf'));
+
+  const res = http.post(`${BASE_URL}/api/pdf-handler/upload/`, fd.body(), {
     headers: { 'Content-Type': 'multipart/form-data; boundary=' + fd.boundary },
     timeout: '30s',
   });
 
-  check(response, {
-    'upload: status is 201': (r) => r.status === 201,
-    'upload: response time < 1s': (r) => r.timings.duration < 1000,
-    'upload: has success message': (r) => r.body && r.body.includes('File Upload'),
+  check(res, {
+    'status is 201': (r) => r.status === 201,
+    'response time < 1s': (r) => r.timings.duration < 1000,
+    'has success message': (r) => r.body && r.body.includes('File Upload'),
   });
 
   sleep(1);
